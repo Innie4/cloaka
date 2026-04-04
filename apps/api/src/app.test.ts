@@ -1,0 +1,38 @@
+import request from "supertest";
+import { beforeAll, describe, expect, it } from "vitest";
+
+let createApp: typeof import("./app").createApp;
+
+beforeAll(async () => {
+  process.env.NODE_ENV = "test";
+  process.env.PORT = "4000";
+  process.env.FRONTEND_URL = "http://localhost:3000";
+  process.env.DATABASE_URL = "postgresql://cloaka:cloaka@localhost:5432/cloaka";
+  process.env.JWT_ACCESS_SECRET =
+    "test-access-secret-that-is-definitely-long-enough-123456789";
+  process.env.JWT_REFRESH_SECRET =
+    "test-refresh-secret-that-is-definitely-long-enough-123456789";
+
+  ({ createApp } = await import("./app"));
+});
+
+describe("createApp", () => {
+  it("returns health information", async () => {
+    const app = createApp();
+    const response = await request(app).get("/api/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe("ok");
+  });
+
+  it("returns the mock overview payload", async () => {
+    const app = createApp();
+    const response = await request(app).get("/api/overview");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data.metrics)).toBe(true);
+    expect(Array.isArray(response.body.data.payments)).toBe(true);
+  });
+});

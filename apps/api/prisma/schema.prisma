@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum PlanTier {
+  STARTER
+  GROWTH
+  SCALE
+  ENTERPRISE
+}
+
+enum KybStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+enum RecipientType {
+  EMPLOYEE
+  VENDOR
+  CONTRACTOR
+  OTHER
+}
+
+enum ScheduleType {
+  ONE_TIME
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+  EVENT_TRIGGERED
+}
+
+enum RuleType {
+  ATTENDANCE
+  APPROVAL
+  TASK_COMPLETION
+  THRESHOLD
+  DATE_WINDOW
+  MULTI_CONDITION
+}
+
+enum PaymentStatus {
+  DRAFT
+  SCHEDULED
+  PENDING_APPROVAL
+  PROCESSING
+  PAID
+  FAILED
+  WITHHELD
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum LedgerEntryType {
+  CREDIT
+  DEBIT
+  HOLD
+  RELEASE
+  REFUND
+}
+
+model Business {
+  id               String             @id @default(cuid())
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  name             String
+  slug             String             @unique
+  primaryEmail     String             @unique
+  phone            String
+  planTier         PlanTier           @default(STARTER)
+  kybStatus        KybStatus          @default(PENDING)
+  industry         String?
+  businessSize     String?
+  state            String?
+  users            User[]
+  recipients       Recipient[]
+  schedules        Schedule[]
+  rules            Rule[]
+  payments         Payment[]
+  settings         BusinessSettings?
+  auditLogs        AuditLog[]
+  walletEntries    WalletLedgerEntry[]
+  refreshTokens    RefreshToken[]
+}
+
+model BusinessSettings {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  businessId            String   @unique
+  lowBalanceThreshold   Decimal  @db.Decimal(18, 2)
+  approvalThreshold     Decimal? @db.Decimal(18, 2)
+  emailNotifications    Boolean  @default(true)
+  smsNotifications      Boolean  @default(true)
+  holdFundsCopy         String?
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                String         @id @default(cuid())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  businessId        String
+  fullName          String
+  email             String         @unique
+  phone             String
+  passwordHash      String
+  role              UserRole       @default(OWNER)
+  emailVerifiedAt   DateTime?
+  phoneVerifiedAt   DateTime?
+  twoFactorEnabled  Boolean        @default(false)
+  business          Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  paymentsCreated   Payment[]      @relation("PaymentsCreatedBy")
+  approvalsAssigned ApprovalRequest[] @relation("Approver")
+  approvalsRaised   ApprovalRequest[] @relation("Requester")
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+
+  @@index([businessId])
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  businessId  String
+  userId      String
+  tokenId     String   @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, userId])
+}
+
+model Recipient {
+  id             String        @id @default(cuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  businessId     String
+  type           RecipientType
+  fullName       String
+  bankName       String
+  accountNumber  String
+  accountName    String
+  email          String?
+  phone          String?
+  department     String?
+  notes          String?
+  tags           String[]
+  isActive       Boolean       @default(true)
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  scheduleLinks  ScheduleRecipient[]
+  rules          Rule[]
+  payments       Payment[]
+
+  @@index([businessId, type])
+}
+
+model Schedule {
+  id                 String            @id @default(cuid())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  businessId         String
+  name               String
+  description        String?
+  type               ScheduleType
+  timezone           String            @default("Africa/Lagos")
+  dayOfMonth         Int?
+  weekday            Int?
+  runAt              String?
+  pausedAt           DateTime?
+  approvalThreshold  Decimal?          @db.Decimal(18, 2)
+  business           Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  recipients         ScheduleRecipient[]
+  payments           Payment[]
+  rules              Rule[]
+
+  @@index([businessId, type])
+}
+
+model ScheduleRecipient {
+  id          String    @id @default(cuid())
+  scheduleId  String
+  recipientId String
+  fixedAmount Decimal?  @db.Decimal(18, 2)
+  createdAt   DateTime  @default(now())
+  schedule    Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  recipient   Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, recipientId])
+}
+
+model Rule {
+  id              String      @id @default(cuid())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  businessId      String
+  scheduleId      String?
+  recipientId     String?
+  name            String
+  description     String
+  type            RuleType
+  status          String      @default("ACTIVE")
+  conditionsJson  Json
+  business        Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  schedule        Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  recipient       Recipient?  @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+
+  @@index([businessId, type])
+}
+
+model Payment {
+  id               String           @id @default(cuid())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  businessId       String
+  scheduleId       String?
+  recipientId      String?
+  ruleId           String?
+  createdByUserId  String?
+  reference        String           @unique
+  type             String
+  amount           Decimal          @db.Decimal(18, 2)
+  status           PaymentStatus    @default(DRAFT)
+  scheduledFor     DateTime?
+  processedAt      DateTime?
+  failureReason    String?
+  business         Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  schedule         Schedule?        @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  recipient        Recipient?       @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+  rule             Rule?            @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  createdByUser    User?            @relation("PaymentsCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvals        ApprovalRequest[]
+
+  @@index([businessId, status])
+}
+
+model ApprovalRequest {
+  id           String         @id @default(cuid())
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  paymentId     String
+  requesterId   String
+  approverId    String
+  status        ApprovalStatus @default(PENDING)
+  comment       String?
+  expiresAt     DateTime?
+  decidedAt     DateTime?
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requester     User          @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  approver      User          @relation("Approver", fields: [approverId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, status])
+}
+
+model WalletLedgerEntry {
+  id           String          @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  businessId   String
+  type         LedgerEntryType
+  amount       Decimal         @db.Decimal(18, 2)
+  reference    String
+  narration    String
+  occurredAt   DateTime        @default(now())
+  business     Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, occurredAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  businessId   String
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String?
+  metadata     Json?
+  ipAddress    String?
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  actorUser    User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+}

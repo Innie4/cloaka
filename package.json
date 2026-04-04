@@ -1,0 +1,28 @@
+{
+  "name": "cloaka",
+  "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@cloaka/web",
+    "dev:api": "turbo dev --filter=@cloaka/api",
+    "postinstall": "npm --workspace @cloaka/api run prisma:generate",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "build": "turbo build",
+    "build:web": "turbo build --filter=@cloaka/web",
+    "build:api": "turbo build --filter=@cloaka/api",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "typecheck:web": "turbo typecheck --filter=@cloaka/web",
+    "typecheck:api": "turbo typecheck --filter=@cloaka/api"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3"
+  }
+}
