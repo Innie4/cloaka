@@ -10,6 +10,7 @@ import { listSupportedBanks, verifyRecipientBankAccount } from "../../services/b
 import {
   bulkDeactivateRecipientsSchema,
   createRecipientSchema,
+  importRecipientsSchema,
   verifyRecipientAccountSchema
 } from "./recipients.schemas";
 
@@ -38,6 +39,30 @@ type RecipientSummaryRecord = {
 
 function maskAccountNumber(accountNumber: string) {
   return `******${accountNumber.slice(-4)}`;
+}
+
+function splitCsv(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let quoted = false;
+
+  for (const character of line) {
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+
+    if (character === "," && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  cells.push(current.trim());
+  return cells;
 }
 
 function serializeRecipientSummary(recipient: RecipientSummaryRecord) {
@@ -275,6 +300,117 @@ recipientsRouter.get(
           processedAt: payment.processedAt?.toISOString() ?? null,
           failureReason: payment.failureReason
         }))
+      })
+    );
+  })
+);
+
+recipientsRouter.post(
+  "/import",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const input = importRecipientsSchema.parse(req.body);
+    const lines = input.csvContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+    if (lines.length <= 1) {
+      throw new AppError("The CSV file is empty.", 422, "EMPTY_CSV");
+    }
+
+    const headers = splitCsv(lines[0]);
+    const preview = lines.slice(1).map((line, index) => {
+      const record = Object.fromEntries(
+        headers.map((header, cellIndex) => [header, splitCsv(line)[cellIndex] ?? ""])
+      );
+
+      const parsed = createRecipientSchema.safeParse({
+        fullName: record.fullName,
+        type: record.type,
+        bankCode: record.bankCode,
+        accountNumber: record.accountNumber,
+        email: record.email || undefined,
+        phone: record.phone || undefined,
+        department: record.department || undefined,
+        notes: record.notes || undefined,
+        tags: (record.tags ?? "")
+          .split(/[|,]/)
+          .map((tag: string) => tag.trim())
+          .filter(Boolean)
+      });
+
+      return {
+        rowNumber: index + 2,
+        valid: parsed.success,
+        input: record,
+        errors: parsed.success ? [] : parsed.error.issues.map((issue) => issue.message),
+        parsed: parsed.success ? parsed.data : null
+      };
+    });
+
+    if (!input.commit) {
+      res.json(
+        ok({
+          totalRows: preview.length,
+          validRows: preview.filter((row) => row.valid).length,
+          invalidRows: preview.filter((row) => !row.valid).length,
+          rows: preview
+        })
+      );
+      return;
+    }
+
+    const validRows = preview.filter(
+      (row): row is typeof row & { parsed: NonNullable<typeof row.parsed> } => row.valid && row.parsed !== null
+    );
+
+    const created: string[] = [];
+    const failures: Array<{ rowNumber: number; message: string }> = [];
+
+    for (const row of validRows) {
+      try {
+        await assertRecipientCapacity(req.auth!.businessId);
+        const bank = findNigerianBankByCode(row.parsed.bankCode);
+
+        if (!bank) {
+          throw new AppError("Select a supported Nigerian bank.", 422, "UNSUPPORTED_BANK");
+        }
+
+        const verification = await verifyRecipientBankAccount({
+          bankCode: row.parsed.bankCode,
+          accountNumber: row.parsed.accountNumber
+        });
+
+        const recipient = await prisma.recipient.create({
+          data: {
+            businessId: req.auth!.businessId,
+            type: row.parsed.type,
+            fullName: row.parsed.fullName,
+            bankName: bank.name,
+            bankCode: bank.code,
+            accountNumber: verification.accountNumber,
+            accountName: verification.accountName,
+            email: row.parsed.email,
+            phone: row.parsed.phone,
+            department: row.parsed.department,
+            notes: row.parsed.notes,
+            tags: row.parsed.tags
+          }
+        });
+
+        created.push(recipient.id);
+      } catch (error) {
+        failures.push({
+          rowNumber: row.rowNumber,
+          message: error instanceof Error ? error.message : "Import failed."
+        });
+      }
+    }
+
+    res.json(
+      ok({
+        totalRows: preview.length,
+        importedCount: created.length,
+        failedCount: failures.length,
+        failures
       })
     );
   })

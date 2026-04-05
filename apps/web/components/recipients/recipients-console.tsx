@@ -107,6 +107,7 @@ export function RecipientsConsole() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<RecipientType | "ALL">("ALL");
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [csvContent, setCsvContent] = useState("");
   const [message, setMessage] = useState("Load a live session to manage recipients.");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -245,56 +246,80 @@ export function RecipientsConsole() {
   async function previewCsv(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const lines = (await file.text()).split(/\r?\n/).filter(Boolean);
-    const headers = splitCsv(lines[0] ?? "");
-    const rows = lines.slice(1).map((line, index) => {
-      const cells = splitCsv(line);
-      const record = Object.fromEntries(headers.map((header, i) => [header, cells[i] ?? ""]));
-      const row: FormState = {
-        fullName: record.fullName ?? "",
-        type: ((record.type as RecipientType) || "EMPLOYEE") as RecipientType,
-        bankCode: record.bankCode ?? "",
-        accountNumber: record.accountNumber ?? "",
-        department: record.department ?? "",
-        tags: record.tags ?? ""
-      };
-      const errors = [
-        ...(row.fullName.trim().length < 2 ? ["Full name is required."] : []),
-        ...(!["EMPLOYEE", "VENDOR", "CONTRACTOR", "OTHER"].includes(row.type)
-          ? ["Type is invalid."]
-          : []),
-        ...(!banks.some((bank) => bank.code === row.bankCode) ? ["Bank code is invalid."] : []),
-        ...(!/^\d{10}$/.test(row.accountNumber.replace(/\D/g, ""))
-          ? ["Account number must be 10 digits."]
-          : [])
-      ];
-      return { index: index + 2, row, errors };
-    });
-    setCsvRows(rows);
-    setMessage(`${rows.filter((row) => row.errors.length === 0).length} rows are ready to import.`);
-    event.target.value = "";
+    const nextCsvContent = await file.text();
+    setBusy(true);
+
+    try {
+      const result = await authedPost<{
+        totalRows: number;
+        validRows: number;
+        rows: Array<{
+          rowNumber: number;
+          valid: boolean;
+          input: Record<string, string>;
+          errors: string[];
+        }>;
+      }>("/api/recipients/import", {
+        csvContent: nextCsvContent,
+        commit: false
+      });
+
+      setCsvContent(nextCsvContent);
+      setCsvRows(
+        result.rows.map((row) => ({
+          index: row.rowNumber,
+          row: {
+            fullName: row.input.fullName ?? "",
+            type: ((row.input.type as RecipientType) || "EMPLOYEE") as RecipientType,
+            bankCode: row.input.bankCode ?? "",
+            accountNumber: row.input.accountNumber ?? "",
+            department: row.input.department ?? "",
+            tags: row.input.tags ?? ""
+          },
+          errors: row.errors
+        }))
+      );
+      setMessage(`${result.validRows} rows are ready to import.`);
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not parse the CSV.");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
   }
 
   async function importValidRows() {
-    const validRows = csvRows.filter((row) => row.errors.length === 0);
-    if (!validRows.length) return;
+    if (!csvContent) return;
     setBusy(true);
-    const failures: string[] = [];
-    for (const row of validRows) {
-      try {
-        await authedPost("/api/recipients/live", normalize(row.row));
-      } catch (caughtError) {
-        failures.push(`Row ${row.index}: ${caughtError instanceof Error ? caughtError.message : "Import failed."}`);
-      }
+    try {
+      const result = await authedPost<{
+        importedCount: number;
+        failedCount: number;
+        failures: Array<{ rowNumber: number; message: string }>;
+      }>("/api/recipients/import", {
+        csvContent,
+        commit: true
+      });
+
+      await loadRecipients();
+      setCsvRows([]);
+      setCsvContent("");
+      setError(
+        result.failedCount
+          ? result.failures.map((failure) => `Row ${failure.rowNumber}: ${failure.message}`).join(" ")
+          : null
+      );
+      setMessage(
+        result.failedCount
+          ? `${result.importedCount} rows imported. ${result.failedCount} rows failed.`
+          : `${result.importedCount} recipients imported successfully.`
+      );
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Import failed.");
+    } finally {
+      setBusy(false);
     }
-    await loadRecipients();
-    setBusy(false);
-    setError(failures.length ? failures.join(" ") : null);
-    setMessage(
-      failures.length
-        ? `${validRows.length - failures.length} rows imported. ${failures.length} failed.`
-        : `${validRows.length} recipients imported successfully.`
-    );
   }
 
   return (

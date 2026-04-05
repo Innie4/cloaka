@@ -13,7 +13,13 @@ export function createApp() {
       origin: env.FRONTEND_URL
     })
   );
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buffer) => {
+        (req as typeof req & { rawBody?: string }).rawBody = buffer.toString("utf8");
+      }
+    })
+  );
   app.use(requestLogger);
 
   app.get("/", (_req, res) => {

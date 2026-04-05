@@ -13,6 +13,7 @@ type AuthSuccess = {
     fullName: string;
     email: string;
     role: string;
+    twoFactorEnabled?: boolean;
   };
   tokens: {
     accessToken: string;
@@ -24,6 +25,7 @@ type ApiEnvelope<T> = {
   success: boolean;
   data: T;
   error?: {
+    code?: string;
     message?: string;
   };
 };
@@ -34,6 +36,16 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 };
+
+export class ApiRequestError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.code = code;
+  }
+}
 
 function saveSession(result: AuthSuccess) {
   if (typeof window === "undefined") {
@@ -72,16 +84,17 @@ async function requestJson<T>(path: string, options?: RequestOptions): Promise<T
   const payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
-    throw new Error(
+    throw new ApiRequestError(
       payload?.error?.message ??
-        "The request could not be completed. Make sure the API and database are running."
+        "The request could not be completed. Make sure the API and database are running.",
+      payload?.error?.code
     );
   }
 
   return payload.data;
 }
 
-export async function loginRequest(input: { email: string; password: string }) {
+export async function loginRequest(input: { email: string; password: string; otp?: string }) {
   const result = await requestJson<AuthSuccess>("/api/auth/login", {
     method: "POST",
     body: input
@@ -112,6 +125,13 @@ export async function authedGet<T>(path: string) {
 export async function authedPost<T>(path: string, body: unknown) {
   return requestJson<T>(path, {
     method: "POST",
+    body
+  });
+}
+
+export async function authedPatch<T>(path: string, body: unknown) {
+  return requestJson<T>(path, {
+    method: "PATCH",
     body
   });
 }

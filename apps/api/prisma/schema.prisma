@@ -128,6 +128,7 @@ model User {
   emailVerifiedAt   DateTime?
   phoneVerifiedAt   DateTime?
   twoFactorEnabled  Boolean        @default(false)
+  twoFactorSecret   String?
   business          Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   paymentsCreated   Payment[]      @relation("PaymentsCreatedBy")
   approvalsAssigned ApprovalRequest[] @relation("Approver")

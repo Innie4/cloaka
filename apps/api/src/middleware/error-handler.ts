@@ -9,6 +9,20 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
+  if (
+    error instanceof SyntaxError &&
+    "type" in error &&
+    (error as SyntaxError & { type?: string }).type === "entity.parse.failed"
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_JSON",
+        message: "The request body contains invalid JSON."
+      }
+    });
+  }
+
   if (error instanceof ZodError) {
     return res.status(400).json({
       success: false,

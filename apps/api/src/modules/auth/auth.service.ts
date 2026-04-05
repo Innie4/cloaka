@@ -1,10 +1,18 @@
 import bcrypt from "bcryptjs";
+import { generateSecret, generateURI, verify } from "otplib";
+import QRCode from "qrcode";
 import { addDays } from "../shared/date";
 import { prisma } from "../../config/database";
 import { AppError } from "../../lib/app-error";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../lib/auth";
 import { slugify } from "../../lib/slug";
-import type { LoginInput, RegisterInput } from "./auth.schemas";
+import { queueNotification } from "../../services/notifications.service";
+import type {
+  DisableTwoFactorInput,
+  LoginInput,
+  RegisterInput,
+  VerifyTwoFactorInput
+} from "./auth.schemas";
 
 async function issueTokens(user: {
   id: string;
@@ -75,8 +83,7 @@ export async function registerBusiness(input: RegisterInput) {
       }
     },
     include: {
-      users: true,
-      settings: true
+      users: true
     }
   });
 
@@ -86,6 +93,13 @@ export async function registerBusiness(input: RegisterInput) {
     email: owner.email,
     role: owner.role,
     businessId: business.id
+  });
+
+  await queueNotification({
+    businessId: business.id,
+    title: "Business account created",
+    body: `Welcome to Cloaka, ${business.name}. Your workspace is ready for setup.`,
+    level: "success"
   });
 
   return {
@@ -100,7 +114,8 @@ export async function registerBusiness(input: RegisterInput) {
       id: owner.id,
       fullName: owner.fullName,
       email: owner.email,
-      role: owner.role
+      role: owner.role,
+      twoFactorEnabled: owner.twoFactorEnabled
     },
     tokens
   };
@@ -126,11 +141,32 @@ export async function loginUser(input: LoginInput) {
     throw new AppError("Invalid email or password.", 401, "INVALID_CREDENTIALS");
   }
 
+  if (user.twoFactorEnabled) {
+    if (!input.otp) {
+      throw new AppError("Two-factor code required to continue.", 401, "TWO_FACTOR_REQUIRED");
+    }
+
+    const result = user.twoFactorSecret
+      ? await verify({ token: input.otp, secret: user.twoFactorSecret })
+      : { valid: false };
+
+    if (!result.valid) {
+      throw new AppError("Invalid two-factor code.", 401, "INVALID_TWO_FACTOR_CODE");
+    }
+  }
+
   const tokens = await issueTokens({
     id: user.id,
     email: user.email,
     role: user.role,
     businessId: user.businessId
+  });
+
+  await queueNotification({
+    businessId: user.businessId,
+    title: "Successful sign-in",
+    body: `${user.fullName} signed into Cloaka successfully.`,
+    level: "info"
   });
 
   return {
@@ -145,7 +181,8 @@ export async function loginUser(input: LoginInput) {
       id: user.id,
       fullName: user.fullName,
       email: user.email,
-      role: user.role
+      role: user.role,
+      twoFactorEnabled: user.twoFactorEnabled
     },
     tokens
   };
@@ -180,5 +217,173 @@ export async function refreshUserToken(token: string) {
 
   return {
     accessToken
+  };
+}
+
+export async function getCurrentUserProfile(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    },
+    include: {
+      business: {
+        include: {
+          settings: true
+        }
+      }
+    }
+  });
+
+  if (!user) {
+    throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+  }
+
+  return {
+    user: {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      twoFactorEnabled: user.twoFactorEnabled
+    },
+    business: {
+      id: user.business.id,
+      name: user.business.name,
+      planTier: user.business.planTier,
+      lowBalanceThreshold: user.business.settings?.lowBalanceThreshold?.toString() ?? null,
+      emailNotifications: user.business.settings?.emailNotifications ?? true,
+      smsNotifications: user.business.settings?.smsNotifications ?? true
+    }
+  };
+}
+
+export async function setupTwoFactor(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+
+  if (!user) {
+    throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+  }
+
+  const secret = generateSecret();
+  const issuer = "Cloaka";
+  const otpauthUrl = generateURI({
+    issuer,
+    label: user.email,
+    secret
+  });
+  const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+  return {
+    secret,
+    otpauthUrl,
+    qrCodeDataUrl,
+    issuer,
+    account: user.email
+  };
+}
+
+export async function enableTwoFactor(userId: string, input: VerifyTwoFactorInput) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+
+  if (!user) {
+    throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+  }
+
+  const result = await verify({ token: input.otp, secret: input.secret });
+
+  if (!result.valid) {
+    throw new AppError("The two-factor code is invalid.", 422, "INVALID_TWO_FACTOR_CODE");
+  }
+
+  const updated = await prisma.user.update({
+    where: {
+      id: userId
+    },
+    data: {
+      twoFactorEnabled: true,
+      twoFactorSecret: input.secret
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      businessId: updated.businessId,
+      actorUserId: updated.id,
+      action: "auth.2fa_enabled",
+      entityType: "User",
+      entityId: updated.id
+    }
+  });
+
+  await queueNotification({
+    businessId: updated.businessId,
+    title: "Two-factor authentication enabled",
+    body: `${updated.fullName} enabled two-factor authentication.`,
+    level: "success"
+  });
+
+  return {
+    twoFactorEnabled: true
+  };
+}
+
+export async function disableTwoFactor(userId: string, input: DisableTwoFactorInput) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+
+  if (!user) {
+    throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+  }
+
+  if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+    throw new AppError("Two-factor authentication is not enabled.", 409, "TWO_FACTOR_NOT_ENABLED");
+  }
+
+  const result = await verify({ token: input.otp, secret: user.twoFactorSecret });
+
+  if (!result.valid) {
+    throw new AppError("The two-factor code is invalid.", 422, "INVALID_TWO_FACTOR_CODE");
+  }
+
+  await prisma.user.update({
+    where: {
+      id: userId
+    },
+    data: {
+      twoFactorEnabled: false,
+      twoFactorSecret: null
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      businessId: user.businessId,
+      actorUserId: user.id,
+      action: "auth.2fa_disabled",
+      entityType: "User",
+      entityId: user.id
+    }
+  });
+
+  await queueNotification({
+    businessId: user.businessId,
+    title: "Two-factor authentication disabled",
+    body: `${user.fullName} disabled two-factor authentication.`,
+    level: "warning"
+  });
+
+  return {
+    twoFactorEnabled: false
   };
 }

@@ -14,7 +14,7 @@ beforeAll(async () => {
     "test-refresh-secret-that-is-definitely-long-enough-123456789";
 
   ({ createApp } = await import("./app"));
-});
+}, 30000);
 
 describe("createApp", () => {
   it("returns health information", async () => {
@@ -44,5 +44,25 @@ describe("createApp", () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data.headline).toContain("control surface");
     expect(Array.isArray(response.body.data.pricingPlans)).toBe(true);
+  });
+
+  it("serves the OpenAPI document", async () => {
+    const app = createApp();
+    const response = await request(app).get("/api/openapi.json");
+
+    expect(response.status).toBe(200);
+    expect(response.body.openapi).toBe("3.0.3");
+    expect(response.body.paths["/api/recipients/import"]).toBeDefined();
+  });
+
+  it("returns a 400 for malformed JSON bodies", async () => {
+    const app = createApp();
+    const response = await request(app)
+      .post("/api/auth/login")
+      .set("Content-Type", "application/json")
+      .send('{"email":');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_JSON");
   });
 });

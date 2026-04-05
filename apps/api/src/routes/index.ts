@@ -17,7 +17,10 @@ import { ok } from "../lib/api-response";
 import { authRouter } from "../modules/auth/auth.router";
 import { businessesRouter } from "../modules/businesses/businesses.router";
 import { integrationsRouter } from "../modules/integrations/integrations.router";
+import { notificationsRouter } from "../modules/notifications/notifications.router";
 import { recipientsRouter } from "../modules/recipients/recipients.router";
+import { webhooksRouter } from "../modules/webhooks/webhooks.router";
+import { renderDocsHtml, getOpenApiDocument } from "../services/openapi.service";
 
 export const apiRouter = Router();
 
@@ -34,7 +37,17 @@ apiRouter.get("/health", (_req, res) => {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/businesses", businessesRouter);
 apiRouter.use("/integrations", integrationsRouter);
+apiRouter.use("/notifications", notificationsRouter);
 apiRouter.use("/recipients", recipientsRouter);
+apiRouter.use("/webhooks", webhooksRouter);
+
+apiRouter.get("/openapi.json", (_req, res) => {
+  res.json(getOpenApiDocument());
+});
+
+apiRouter.get("/docs", (_req, res) => {
+  res.type("html").send(renderDocsHtml());
+});
 
 apiRouter.get("/overview", (_req, res) => {
   res.json(ok(getDashboardOverview()));

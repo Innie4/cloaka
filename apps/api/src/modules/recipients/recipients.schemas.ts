@@ -34,5 +34,10 @@ export const bulkDeactivateRecipientsSchema = z.object({
   ids: z.array(z.string().trim().min(1)).min(1).max(100)
 });
 
+export const importRecipientsSchema = z.object({
+  csvContent: z.string().min(10),
+  commit: z.boolean().default(false)
+});
+
 export type CreateRecipientInput = z.infer<typeof createRecipientSchema>;
 export type VerifyRecipientAccountInput = z.infer<typeof verifyRecipientAccountSchema>;
