@@ -1,4 +1,3 @@
-import { PlanTier } from "@prisma/client";
 import { findNigerianBankByCode } from "@cloaka/shared";
 import { Router } from "express";
 import { prisma } from "../../config/database";
@@ -7,6 +6,7 @@ import { AppError } from "../../lib/app-error";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "../../middleware/require-auth";
 import { listSupportedBanks, verifyRecipientBankAccount } from "../../services/bank.service";
+import { assertPlanFeature, getBusinessPlanContext } from "../../services/plan-access.service";
 import {
   bulkDeactivateRecipientsSchema,
   createRecipientSchema,
@@ -87,22 +87,7 @@ function serializeRecipientSummary(recipient: RecipientSummaryRecord) {
 }
 
 async function assertRecipientCapacity(businessId: string) {
-  const business = await prisma.business.findUnique({
-    where: {
-      id: businessId
-    },
-    select: {
-      planTier: true
-    }
-  });
-
-  if (!business) {
-    throw new AppError("Business account not found.", 404, "BUSINESS_NOT_FOUND");
-  }
-
-  if (business.planTier !== PlanTier.STARTER) {
-    return;
-  }
+  const { policy } = await getBusinessPlanContext(businessId);
 
   const recipientCount = await prisma.recipient.count({
     where: {
@@ -110,9 +95,9 @@ async function assertRecipientCapacity(businessId: string) {
     }
   });
 
-  if (recipientCount >= 5) {
+  if (recipientCount >= policy.maxRecipients) {
     throw new AppError(
-      "Starter plans can store up to 5 recipients. Upgrade your plan to add more.",
+      `Your current plan supports up to ${policy.maxRecipients} recipients. Upgrade to add more.`,
       403,
       "RECIPIENT_LIMIT_REACHED"
     );
@@ -309,6 +294,7 @@ recipientsRouter.post(
   "/import",
   requireAuth,
   asyncHandler(async (req, res) => {
+    await assertPlanFeature(req.auth!.businessId, "csv_import");
     const input = importRecipientsSchema.parse(req.body);
     const lines = input.csvContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
 

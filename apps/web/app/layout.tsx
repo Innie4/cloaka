@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
+import { WorkspaceProvider } from "@/components/providers/workspace-provider";
 import "./globals.css";
 
 const bodyFont = Plus_Jakarta_Sans({
@@ -78,7 +79,7 @@ export default function RootLayout({
             `
           }}
         />
-        {children}
+        <WorkspaceProvider>{children}</WorkspaceProvider>
       </body>
     </html>
   );

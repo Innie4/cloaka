@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useWorkspace } from "@/components/providers/workspace-provider";
 import { authedGet, authedPost } from "@/lib/auth-client";
 
 type WalletSummary = {
@@ -23,14 +24,8 @@ type LedgerEntry = {
   occurredAt: string;
 };
 
-const formatNgn = (value: number | string) =>
-  new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 2
-  }).format(Number(value));
-
 export function WalletConsole() {
+  const { formatMoney, t } = useWorkspace();
   const [summary, setSummary] = useState<WalletSummary | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [amount, setAmount] = useState("500000");
@@ -66,20 +61,24 @@ export function WalletConsole() {
   return (
     <div className="space-y-6">
       <section className="metric-cream rounded-[30px] border border-[var(--color-line)] p-6 sm:p-8">
-        <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-amber)]">Current position</div>
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-amber)]">
+          {t("Current position")}
+        </div>
         <div className="mt-4 font-[family-name:var(--font-heading)] text-5xl sm:text-6xl">
-          {summary ? formatNgn(summary.totalBalance) : "NGN 0.00"}
+          {summary ? formatMoney(summary.totalBalance) : formatMoney(0)}
         </div>
         <p className="mt-3 text-sm leading-7 text-[var(--color-ink-soft)]">{message}</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {summary
             ? [
-                ["Available", formatNgn(summary.availableBalance)],
-                ["Held", formatNgn(summary.heldBalance)],
-                ["Threshold", formatNgn(summary.lowBalanceThreshold)]
+                [t("Available"), formatMoney(summary.availableBalance)],
+                [t("Held"), formatMoney(summary.heldBalance)],
+                [t("Threshold"), formatMoney(summary.lowBalanceThreshold)]
               ].map(([label, value]) => (
                 <div key={label} className="rounded-[24px] bg-white/70 p-4">
-                  <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-ink-soft)]">{label}</div>
+                  <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-ink-soft)]">
+                    {label}
+                  </div>
                   <div className="mt-2 text-xl font-semibold">{value}</div>
                 </div>
               ))
@@ -89,12 +88,14 @@ export function WalletConsole() {
 
       <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
         <div className="surface rounded-[28px] p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">Virtual account</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">
+            {t("Virtual account")}
+          </div>
           <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
             {summary?.virtualAccountBank ?? "Providus Bank"}
           </h3>
           <p className="mt-3 text-sm text-[var(--color-ink-soft)]">
-            {summary?.accountName ?? "Cloaka Business"} • {summary?.virtualAccountNumber ?? "Not assigned"}
+            {summary?.accountName ?? "Cloaka Business"} | {summary?.virtualAccountNumber ?? t("Not assigned")}
           </p>
           <div className="mt-5 flex gap-3">
             <input
@@ -107,29 +108,31 @@ export function WalletConsole() {
               onClick={() => fundWallet().catch(() => undefined)}
               className="rounded-full bg-[var(--color-sidebar)] px-5 py-3 text-sm font-semibold text-white"
             >
-              Fund
+              {t("Fund")}
             </button>
           </div>
         </div>
 
         <div className="surface overflow-hidden rounded-[30px]">
           <div className="border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
-            <h3 className="font-[family-name:var(--font-heading)] text-2xl">Wallet ledger</h3>
+            <h3 className="font-[family-name:var(--font-heading)] text-2xl">{t("Wallet ledger")}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-soft)]">
                 <tr>
-                  <th className="px-5 py-4 sm:px-6">Type</th>
-                  <th className="px-5 py-4">Amount</th>
-                  <th className="px-5 py-4">Narration</th>
+                  <th className="px-5 py-4 sm:px-6">{t("Type")}</th>
+                  <th className="px-5 py-4">{t("Amount")}</th>
+                  <th className="px-5 py-4">{t("Narration")}</th>
                 </tr>
               </thead>
               <tbody>
                 {ledger.map((entry) => (
                   <tr key={entry.id}>
                     <td className="border-t border-[var(--color-line)] px-5 py-4 sm:px-6">{entry.type}</td>
-                    <td className="border-t border-[var(--color-line)] px-5 py-4">{formatNgn(entry.amount)}</td>
+                    <td className="border-t border-[var(--color-line)] px-5 py-4">
+                      {formatMoney(entry.amount)}
+                    </td>
                     <td className="border-t border-[var(--color-line)] px-5 py-4">{entry.narration}</td>
                   </tr>
                 ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useWorkspace } from "@/components/providers/workspace-provider";
 import { authedGet } from "@/lib/auth-client";
 
 type OverviewPayload = {
@@ -24,14 +25,8 @@ type OverviewPayload = {
   }>;
 };
 
-const formatNgn = (value: number) =>
-  new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 2
-  }).format(value);
-
 export function OverviewConsole() {
+  const { formatMoney, t } = useWorkspace();
   const [data, setData] = useState<OverviewPayload | null>(null);
 
   useEffect(() => {
@@ -43,7 +38,7 @@ export function OverviewConsole() {
   if (!data) {
     return (
       <div className="surface rounded-[28px] p-5 text-sm text-[var(--color-ink-soft)]">
-        Sign in to load your live dashboard overview.
+        {t("Sign in to load your live dashboard overview.")}
       </div>
     );
   }
@@ -52,10 +47,10 @@ export function OverviewConsole() {
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-4">
         {[
-          ["Available balance", formatNgn(data.wallet.availableBalance)],
-          ["Held funds", formatNgn(data.wallet.heldBalance)],
-          ["Active recipients", String(data.recipientCount)],
-          ["Pending approvals", String(data.pendingApprovals)]
+          [t("Available balance"), formatMoney(data.wallet.availableBalance)],
+          [t("Held funds"), formatMoney(data.wallet.heldBalance)],
+          [t("Active recipients"), String(data.recipientCount)],
+          [t("Pending approvals"), String(data.pendingApprovals)]
         ].map(([label, value]) => (
           <article key={label} className="surface rounded-[28px] p-5">
             <div className="text-sm text-[var(--color-ink-soft)]">{label}</div>
@@ -70,11 +65,13 @@ export function OverviewConsole() {
             Wallet hero
           </div>
           <div className="mt-4 font-[family-name:var(--font-heading)] text-5xl sm:text-6xl">
-            {formatNgn(data.wallet.totalBalance)}
+            {formatMoney(data.wallet.totalBalance)}
           </div>
           <p className="mt-3 text-sm leading-7 text-[var(--color-ink-soft)]">
-            Threshold: {formatNgn(data.wallet.lowBalanceThreshold)}.
-            {data.wallet.needsAttention ? " Wallet balance needs attention." : " Wallet is above the alert threshold."}
+            {t("Threshold")}: {formatMoney(data.wallet.lowBalanceThreshold)}.
+            {data.wallet.needsAttention
+              ? ` ${t("Wallet balance needs attention.")}`
+              : ` ${t("Wallet is above the alert threshold.")}`}
           </p>
         </article>
 
@@ -88,7 +85,9 @@ export function OverviewConsole() {
                 {schedule.name}
               </h3>
               <p className="mt-3 text-sm text-[var(--color-ink-soft)]">
-                {schedule.recipientCount} recipients linked to this run.
+                {t("{{count}} recipients linked to this run.", {
+                  count: schedule.recipientCount
+                })}
               </p>
             </article>
           ))}
@@ -97,16 +96,18 @@ export function OverviewConsole() {
 
       <section className="surface overflow-hidden rounded-[30px]">
         <div className="border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
-          <h3 className="font-[family-name:var(--font-heading)] text-2xl">Recent payment activity</h3>
+          <h3 className="font-[family-name:var(--font-heading)] text-2xl">
+            {t("Recent payment activity")}
+          </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-soft)]">
               <tr>
-                <th className="px-5 py-4 sm:px-6">Reference</th>
-                <th className="px-5 py-4">Recipient</th>
-                <th className="px-5 py-4">Amount</th>
-                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4 sm:px-6">{t("Reference")}</th>
+                <th className="px-5 py-4">{t("Recipient")}</th>
+                <th className="px-5 py-4">{t("Amount")}</th>
+                <th className="px-5 py-4">{t("Status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +115,9 @@ export function OverviewConsole() {
                 <tr key={payment.id}>
                   <td className="border-t border-[var(--color-line)] px-5 py-4 sm:px-6">{payment.reference}</td>
                   <td className="border-t border-[var(--color-line)] px-5 py-4">{payment.recipient}</td>
-                  <td className="border-t border-[var(--color-line)] px-5 py-4">{formatNgn(payment.amount)}</td>
+                  <td className="border-t border-[var(--color-line)] px-5 py-4">
+                    {formatMoney(payment.amount)}
+                  </td>
                   <td className="border-t border-[var(--color-line)] px-5 py-4">{payment.status}</td>
                 </tr>
               ))}

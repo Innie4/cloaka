@@ -1,20 +1,35 @@
 "use client";
 
+import type { SupportedLanguageCode, SupportedPlanTier, WorkspaceFeature } from "@cloaka/shared";
+
+export type AuthBusiness = {
+  id: string;
+  name: string;
+  slug: string;
+  planTier: SupportedPlanTier;
+  kybStatus: string;
+  countryCode: string;
+  currencyCode: string;
+  languageCode: SupportedLanguageCode;
+  locale: string;
+  limits: {
+    maxRecipients: number;
+    maxTeamMembers: number;
+  };
+  features: WorkspaceFeature[];
+};
+
+export type AuthUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  twoFactorEnabled?: boolean;
+};
+
 type AuthSuccess = {
-  business: {
-    id: string;
-    name: string;
-    slug: string;
-    planTier: string;
-    kybStatus: string;
-  };
-  user: {
-    id: string;
-    fullName: string;
-    email: string;
-    role: string;
-    twoFactorEnabled?: boolean;
-  };
+  business: AuthBusiness;
+  user: AuthUser;
   tokens: {
     accessToken: string;
     refreshToken: string;
@@ -56,6 +71,23 @@ function saveSession(result: AuthSuccess) {
   window.localStorage.setItem("cloaka.refreshToken", result.tokens.refreshToken);
   window.localStorage.setItem("cloaka.user", JSON.stringify(result.user));
   window.localStorage.setItem("cloaka.business", JSON.stringify(result.business));
+  window.dispatchEvent(new Event("cloaka-session-updated"));
+}
+
+export function syncStoredSession(input: { user?: AuthUser | null; business?: AuthBusiness | null }) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (input.user) {
+    window.localStorage.setItem("cloaka.user", JSON.stringify(input.user));
+  }
+
+  if (input.business) {
+    window.localStorage.setItem("cloaka.business", JSON.stringify(input.business));
+  }
+
+  window.dispatchEvent(new Event("cloaka-session-updated"));
 }
 
 function getStoredAccessToken() {
@@ -109,6 +141,9 @@ export async function registerRequest(input: {
   email: string;
   phone: string;
   password: string;
+  planTier: SupportedPlanTier;
+  countryCode: string;
+  languageCode: SupportedLanguageCode;
 }) {
   const result = await requestJson<AuthSuccess>("/api/auth/register", {
     method: "POST",
@@ -134,4 +169,21 @@ export async function authedPatch<T>(path: string, body: unknown) {
     method: "PATCH",
     body
   });
+}
+
+export function getStoredSession() {
+  if (typeof window === "undefined") {
+    return {
+      user: null,
+      business: null
+    };
+  }
+
+  const user = window.localStorage.getItem("cloaka.user");
+  const business = window.localStorage.getItem("cloaka.business");
+
+  return {
+    user: user ? (JSON.parse(user) as AuthSuccess["user"]) : null,
+    business: business ? (JSON.parse(business) as AuthSuccess["business"]) : null
+  };
 }

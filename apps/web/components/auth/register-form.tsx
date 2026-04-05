@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { supportedCountries, supportedLanguages, type SupportedLanguageCode, type SupportedPlanTier } from "@cloaka/shared";
 import { registerRequest } from "@/lib/auth-client";
 
 type RegisterState = {
@@ -10,6 +11,9 @@ type RegisterState = {
   email: string;
   phone: string;
   password: string;
+  planTier: SupportedPlanTier;
+  countryCode: string;
+  languageCode: SupportedLanguageCode;
 };
 
 const initialState: RegisterState = {
@@ -17,16 +21,66 @@ const initialState: RegisterState = {
   ownerName: "",
   email: "",
   phone: "",
-  password: ""
+  password: "",
+  planTier: "STARTER",
+  countryCode: "NG",
+  languageCode: "en"
 };
+
+const copy = {
+  en: {
+    loading: "Creating your business account...",
+    success: "Account created for {{name}}. Redirecting to the dashboard...",
+    fallback: "Unable to create the account right now.",
+    intro: "Create an individual business dashboard with the right country, currency, language, and plan from day one.",
+    businessName: "Business name",
+    ownerName: "Owner full name",
+    email: "Work email",
+    phone: "Phone number",
+    country: "Country",
+    language: "Preferred language",
+    plan: "Plan",
+    password: "Password",
+    passwordHint: "At least 8 characters",
+    submit: "Create account",
+    submitting: "Creating account..."
+  },
+  fr: {
+    loading: "Creation de votre compte entreprise...",
+    success: "Compte cree pour {{name}}. Redirection vers le tableau de bord...",
+    fallback: "Impossible de creer le compte pour le moment.",
+    intro: "Creez un tableau de bord entreprise individuel avec le bon pays, la bonne devise, la bonne langue et le bon plan des le premier jour.",
+    businessName: "Nom de l'entreprise",
+    ownerName: "Nom complet du proprietaire",
+    email: "E-mail professionnel",
+    phone: "Numero de telephone",
+    country: "Pays",
+    language: "Langue preferee",
+    plan: "Plan",
+    password: "Mot de passe",
+    passwordHint: "Au moins 8 caracteres",
+    submit: "Creer le compte",
+    submitting: "Creation du compte..."
+  }
+} as const;
+
+function interpolate(template: string, values?: Record<string, string>) {
+  if (!values) {
+    return template;
+  }
+
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{{${key}}}`, value),
+    template
+  );
+}
 
 export function RegisterForm() {
   const router = useRouter();
   const [form, setForm] = useState(initialState);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [message, setMessage] = useState(
-    "This form will create a real business record once the API has a running Postgres database."
-  );
+  const dictionary = copy[form.languageCode];
+  const [message, setMessage] = useState<string>(dictionary.intro);
 
   function updateField<K extends keyof RegisterState>(field: K, value: RegisterState[K]) {
     setForm((current) => ({
@@ -38,25 +92,26 @@ export function RegisterForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("loading");
-    setMessage("Creating your business account...");
+    setMessage(copy[form.languageCode].loading);
 
     try {
       const result = await registerRequest(form);
       setStatus("idle");
-      setMessage(`Account created for ${result.business.name}. Redirecting to the dashboard...`);
+      setMessage(interpolate(copy[form.languageCode].success, { name: result.business.name }));
       router.push("/");
       router.refresh();
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to create the account right now.");
+      setMessage(error instanceof Error ? error.message : copy[form.languageCode].fallback);
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <p className="text-sm leading-6 text-[var(--color-ink-soft)]">{dictionary.intro}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-[var(--color-ink)]">Business name</span>
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.businessName}</span>
           <input
             value={form.businessName}
             onChange={(event) => updateField("businessName", event.target.value)}
@@ -66,7 +121,7 @@ export function RegisterForm() {
           />
         </label>
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-[var(--color-ink)]">Owner full name</span>
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.ownerName}</span>
           <input
             value={form.ownerName}
             onChange={(event) => updateField("ownerName", event.target.value)}
@@ -76,7 +131,7 @@ export function RegisterForm() {
           />
         </label>
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-[var(--color-ink)]">Work email</span>
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.email}</span>
           <input
             type="email"
             value={form.email}
@@ -88,7 +143,7 @@ export function RegisterForm() {
           />
         </label>
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-[var(--color-ink)]">Phone number</span>
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.phone}</span>
           <input
             value={form.phone}
             onChange={(event) => updateField("phone", event.target.value)}
@@ -98,15 +153,60 @@ export function RegisterForm() {
             required
           />
         </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.country}</span>
+          <select
+            value={form.countryCode}
+            onChange={(event) => updateField("countryCode", event.target.value)}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--color-blue)]"
+          >
+            {supportedCountries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name} ({country.currencyCode})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.language}</span>
+          <select
+            value={form.languageCode}
+            onChange={(event) => {
+              const languageCode = event.target.value as SupportedLanguageCode;
+              updateField("languageCode", languageCode);
+              setMessage(copy[languageCode].intro);
+            }}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--color-blue)]"
+          >
+            {supportedLanguages.map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-2 sm:col-span-2">
+          <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.plan}</span>
+          <select
+            value={form.planTier}
+            onChange={(event) => updateField("planTier", event.target.value as SupportedPlanTier)}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--color-blue)]"
+          >
+            <option value="STARTER">Starter</option>
+            <option value="GROWTH">Growth</option>
+            <option value="SCALE">Scale</option>
+            <option value="ENTERPRISE">Enterprise</option>
+          </select>
+        </label>
       </div>
       <label className="block space-y-2">
-        <span className="text-sm font-medium text-[var(--color-ink)]">Password</span>
+        <span className="text-sm font-medium text-[var(--color-ink)]">{dictionary.password}</span>
         <input
           type="password"
           value={form.password}
           onChange={(event) => updateField("password", event.target.value)}
           className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--color-blue)]"
-          placeholder="At least 8 characters"
+          placeholder={dictionary.passwordHint}
           autoComplete="new-password"
           required
         />
@@ -116,7 +216,7 @@ export function RegisterForm() {
         disabled={status === "loading"}
         className="rounded-full bg-[var(--color-sidebar)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-70"
       >
-        {status === "loading" ? "Creating account..." : "Create account"}
+        {status === "loading" ? dictionary.submitting : dictionary.submit}
       </button>
       <p
         className={`text-sm leading-6 ${

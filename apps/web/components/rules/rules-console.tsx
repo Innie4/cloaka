@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useWorkspace } from "@/components/providers/workspace-provider";
 import { authedGet, authedPost } from "@/lib/auth-client";
 
 type RuleCondition = {
@@ -34,6 +35,7 @@ const initialCondition: RuleCondition = {
 };
 
 export function RulesConsole() {
+  const { hasFeature, t } = useWorkspace();
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
   const [name, setName] = useState("High-value payouts");
@@ -76,6 +78,11 @@ export function RulesConsole() {
   }
 
   async function saveRule() {
+    if (!hasFeature("rules_engine")) {
+      setMessage("Upgrade to Scale or Enterprise to create and run rules.");
+      return;
+    }
+
     await authedPost("/api/rules/live", {
       name,
       description,
@@ -96,6 +103,11 @@ export function RulesConsole() {
   }
 
   async function testRule(id: string) {
+    if (!hasFeature("rules_engine")) {
+      setMessage("Upgrade to Scale or Enterprise to test rules.");
+      return;
+    }
+
     const response = await authedPost<{ matched: boolean }>(`/api/rules/${id}/test`, {
       amount: Number(testAmount),
       recipientType: testRecipientType,
@@ -112,24 +124,27 @@ export function RulesConsole() {
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="surface rounded-[28px] p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">
-            Rules builder
-          </div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">{t("Rules builder")}</div>
           <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
-            Conditions that read like finance policy
+            {t("Conditions that read like finance policy")}
           </h3>
           <p className="mt-3 text-sm text-[var(--color-ink-soft)]">{message}</p>
+          {!hasFeature("rules_engine") ? (
+            <div className="mt-4 rounded-[24px] border border-dashed border-[var(--color-line)] bg-[var(--color-cream)] p-4 text-sm text-[var(--color-ink-soft)]">
+              {t("Every workspace can see the rules area, but creating and testing live rules unlocks on Scale and above.")}
+            </div>
+          ) : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <input value={name} onChange={(event) => setName(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Rule name" />
-            <input value={description} onChange={(event) => setDescription(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Description" />
+            <input value={name} onChange={(event) => setName(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Rule name")} />
+            <input value={description} onChange={(event) => setDescription(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Description")} />
             <select value={type} onChange={(event) => setType(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-              <option value="THRESHOLD">Threshold</option>
-              <option value="APPROVAL">Approval</option>
-              <option value="MULTI_CONDITION">Multi-condition</option>
-              <option value="DATE_WINDOW">Date window</option>
+              <option value="THRESHOLD">{t("Threshold")}</option>
+              <option value="APPROVAL">{t("Approval")}</option>
+              <option value="MULTI_CONDITION">{t("Multi-condition")}</option>
+              <option value="DATE_WINDOW">{t("Date window")}</option>
             </select>
             <select value={scheduleId} onChange={(event) => setScheduleId(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-              <option value="">All schedules</option>
+              <option value="">{t("All schedules")}</option>
               {schedules.map((schedule) => (
                 <option key={schedule.id} value={schedule.id}>
                   {schedule.name}
@@ -141,77 +156,69 @@ export function RulesConsole() {
               <option value="OR">OR</option>
             </select>
             <select value={result} onChange={(event) => setResult(event.target.value as "WITHHOLD" | "REQUIRE_APPROVAL")} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-              <option value="REQUIRE_APPROVAL">Require approval</option>
-              <option value="WITHHOLD">Withhold</option>
+              <option value="REQUIRE_APPROVAL">{t("Require approval")}</option>
+              <option value="WITHHOLD">{t("Withhold")}</option>
             </select>
           </div>
           <div className="mt-5 space-y-3">
             {conditions.map((condition, index) => (
               <div key={`${index}-${condition.field}`} className="grid gap-3 md:grid-cols-[0.8fr_0.8fr_1fr_auto]">
                 <select value={condition.field} onChange={(event) => updateCondition(index, { field: event.target.value as RuleCondition["field"] })} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-                  <option value="amount">Amount</option>
-                  <option value="recipientType">Recipient type</option>
-                  <option value="department">Department</option>
-                  <option value="dayOfWeek">Day of week</option>
+                  <option value="amount">{t("Amount")}</option>
+                  <option value="recipientType">{t("Recipient type")}</option>
+                  <option value="department">{t("Department")}</option>
+                  <option value="dayOfWeek">{t("Day of week")}</option>
                 </select>
                 <select value={condition.operator} onChange={(event) => updateCondition(index, { operator: event.target.value as RuleCondition["operator"] })} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-                  <option value="gt">Greater than</option>
-                  <option value="gte">Greater than or equal</option>
-                  <option value="lt">Less than</option>
-                  <option value="eq">Equals</option>
-                  <option value="contains">Contains</option>
+                  <option value="gt">{t("Greater than")}</option>
+                  <option value="gte">{t("Greater than or equal")}</option>
+                  <option value="lt">{t("Less than")}</option>
+                  <option value="eq">{t("Equals")}</option>
+                  <option value="contains">{t("Contains")}</option>
                 </select>
-                <input value={condition.value} onChange={(event) => updateCondition(index, { value: event.target.value })} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Value" />
+                <input value={condition.value} onChange={(event) => updateCondition(index, { value: event.target.value })} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Value")} />
                 <button type="button" onClick={() => setConditions((current) => current.filter((_, conditionIndex) => conditionIndex !== index))} className="rounded-full border border-[var(--color-line)] px-4 py-3 text-sm font-semibold">
-                  Remove
+                  {t("Remove")}
                 </button>
               </div>
             ))}
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" onClick={() => setConditions((current) => [...current, initialCondition])} className="rounded-full border border-[var(--color-line)] px-4 py-3 text-sm font-semibold">
-              Add condition
+              {t("Add condition")}
             </button>
             <button type="button" onClick={() => saveRule().catch(() => undefined)} className="rounded-full bg-[var(--color-sidebar)] px-5 py-3 text-sm font-semibold text-white">
-              Save rule
+              {t("Save rule")}
             </button>
           </div>
         </div>
 
         <div className="surface rounded-[28px] p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">
-            Rule tester
-          </div>
-          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
-            Validate before payroll day
-          </h3>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">{t("Rule tester")}</div>
+          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">{t("Validate before payroll day")}</h3>
           <div className="mt-5 grid gap-3">
-            <input value={testAmount} onChange={(event) => setTestAmount(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Amount" />
-            <input value={testRecipientType} onChange={(event) => setTestRecipientType(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Recipient type" />
-            <input value={testDepartment} onChange={(event) => setTestDepartment(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Department" />
+            <input value={testAmount} onChange={(event) => setTestAmount(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Amount")} />
+            <input value={testRecipientType} onChange={(event) => setTestRecipientType(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Recipient type")} />
+            <input value={testDepartment} onChange={(event) => setTestDepartment(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Department")} />
           </div>
           <div className="mt-5 rounded-[24px] border border-dashed border-[var(--color-line)] bg-white p-4 text-sm leading-7 text-[var(--color-ink-soft)]">
-            Select any saved rule below to test it against this sample payload.
+            {t("Select any saved rule below to test it against this sample payload.")}
           </div>
         </div>
       </section>
 
       <section className="surface rounded-[30px] p-5">
-        <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">Saved rules</div>
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">{t("Saved rules")}</div>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {rules.map((rule) => (
             <article key={rule.id} className="rounded-[26px] border border-[var(--color-line)] bg-white p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.16em] text-[var(--color-blue)]">
-                    {rule.type}
-                  </div>
-                  <h4 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
-                    {rule.name}
-                  </h4>
+                  <div className="text-xs uppercase tracking-[0.16em] text-[var(--color-blue)]">{rule.type}</div>
+                  <h4 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">{rule.name}</h4>
                 </div>
                 <button type="button" onClick={() => testRule(rule.id).catch(() => undefined)} className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold">
-                  Test rule
+                  {t("Test rule")}
                 </button>
               </div>
               <p className="mt-3 text-sm leading-7 text-[var(--color-ink-soft)]">{rule.description}</p>
@@ -229,7 +236,7 @@ export function RulesConsole() {
           ))}
           {!rules.length ? (
             <div className="rounded-[24px] border border-dashed border-[var(--color-line)] bg-white p-5 text-sm text-[var(--color-ink-soft)]">
-              No rules yet.
+              {t("No rules yet.")}
             </div>
           ) : null}
         </div>

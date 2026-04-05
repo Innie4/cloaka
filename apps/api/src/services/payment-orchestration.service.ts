@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { hasPlanFeature } from "@cloaka/shared";
 import { ApprovalStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { prisma } from "../config/database";
 import { AppError } from "../lib/app-error";
@@ -179,6 +180,7 @@ export async function createLivePayment(input: {
 
   const ruleResult = await evaluateApplicableRules({
     businessId: input.businessId,
+    planTier: business.planTier,
     scheduleId: input.scheduleId,
     recipientId: recipient.id,
     amount: input.amount,
@@ -213,8 +215,9 @@ export async function createLivePayment(input: {
     : 0;
 
   const shouldRequireApproval =
-    ruleResult.action === "REQUIRE_APPROVAL" ||
-    (approvalThreshold > 0 && input.amount >= approvalThreshold);
+    hasPlanFeature(business.planTier, "approvals") &&
+    (ruleResult.action === "REQUIRE_APPROVAL" ||
+      (approvalThreshold > 0 && input.amount >= approvalThreshold));
 
   const shouldWithhold = ruleResult.action === "WITHHOLD";
 

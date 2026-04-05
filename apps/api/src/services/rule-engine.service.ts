@@ -1,3 +1,4 @@
+import { hasPlanFeature, type SupportedPlanTier } from "@cloaka/shared";
 import { prisma } from "../config/database";
 
 type RuleCondition = {
@@ -54,12 +55,21 @@ export function evaluateRulePayload(payload: RulePayload, context: RuleContext) 
 
 export async function evaluateApplicableRules(input: {
   businessId: string;
+  planTier: SupportedPlanTier;
   scheduleId?: string | null;
   recipientId?: string | null;
   amount: number;
   recipientType: string;
   department: string | null;
 }) {
+  if (!hasPlanFeature(input.planTier, "rules_engine")) {
+    return {
+      matched: false,
+      rule: null,
+      action: null
+    };
+  }
+
   const rules = await prisma.rule.findMany({
     where: {
       businessId: input.businessId,

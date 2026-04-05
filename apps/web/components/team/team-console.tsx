@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useWorkspace } from "@/components/providers/workspace-provider";
 import { authedGet, authedPatch, authedPost } from "@/lib/auth-client";
 
 type TeamPayload = {
@@ -22,6 +23,7 @@ type TeamPayload = {
 };
 
 export function TeamConsole() {
+  const { business, hasFeature, t } = useWorkspace();
   const [data, setData] = useState<TeamPayload | null>(null);
   const [fullName, setFullName] = useState("Finance Admin");
   const [email, setEmail] = useState("finance-admin@cloaka.dev");
@@ -45,6 +47,11 @@ export function TeamConsole() {
   }, []);
 
   async function addMember() {
+    if (!hasFeature("team_management")) {
+      setMessage("Upgrade to Scale or Enterprise to add more workspace members.");
+      return;
+    }
+
     await authedPost("/api/team/live", {
       fullName,
       email,
@@ -57,6 +64,11 @@ export function TeamConsole() {
   }
 
   async function updateRole(id: string, nextRole: string) {
+    if (!hasFeature("team_management")) {
+      setMessage("Upgrade to Scale or Enterprise to edit workspace roles.");
+      return;
+    }
+
     await authedPatch(`/api/team/live/${id}/role`, {
       role: nextRole
     });
@@ -68,16 +80,23 @@ export function TeamConsole() {
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="surface rounded-[28px] p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">Access</div>
-          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">Clear roles for real operators</h3>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">{t("Access")}</div>
+          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
+            {t("Clear roles for real operators")}
+          </h3>
           <p className="mt-3 text-sm text-[var(--color-ink-soft)]">{message}</p>
+          {!hasFeature("team_management") ? (
+            <div className="mt-4 rounded-[24px] border border-dashed border-[var(--color-line)] bg-[var(--color-cream)] p-4 text-sm text-[var(--color-ink-soft)]">
+              {t("Your current plan keeps the team page visible, but adding and editing members unlocks on Scale and above.")}
+            </div>
+          ) : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {data
               ? [
-                  ["Total", String(data.summary.total)],
-                  ["Owners", String(data.summary.owners)],
-                  ["Admins", String(data.summary.admins)],
-                  ["Viewers", String(data.summary.viewers)]
+                  [t("Total"), String(data.summary.total)],
+                  [t("Owners"), String(data.summary.owners)],
+                  [t("Admins"), String(data.summary.admins)],
+                  [t("Viewers"), String(data.summary.viewers)]
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[24px] border border-[var(--color-line)] bg-white p-4">
                     <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-ink-soft)]">{label}</div>
@@ -89,36 +108,41 @@ export function TeamConsole() {
         </div>
 
         <div className="surface rounded-[28px] p-5">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">Add member</div>
-          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">Invite with a working login</h3>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-blue)]">{t("Add member")}</div>
+          <h3 className="mt-2 font-[family-name:var(--font-heading)] text-2xl">
+            {t("Invite with a working login")}
+          </h3>
+          <div className="mt-2 text-sm text-[var(--color-ink-soft)]">
+            {t("Plan limit")}: {business?.limits.maxTeamMembers ?? 1} {t("team member slots")}
+          </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <input value={fullName} onChange={(event) => setFullName(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Full name" />
-            <input value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Email" />
-            <input value={phone} onChange={(event) => setPhone(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Phone" />
+            <input value={fullName} onChange={(event) => setFullName(event.target.value)} className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Full name")} />
+            <input value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Email")} />
+            <input value={phone} onChange={(event) => setPhone(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Phone")} />
             <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]">
-              <option value="ADMIN">Admin</option>
-              <option value="VIEWER">Viewer</option>
+              <option value="ADMIN">{t("Admin")}</option>
+              <option value="VIEWER">{t("Viewer")}</option>
             </select>
-            <input value={password} onChange={(event) => setPassword(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder="Temporary password" />
+            <input value={password} onChange={(event) => setPassword(event.target.value)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-blue)]" placeholder={t("Temporary password")} />
           </div>
           <button type="button" onClick={() => addMember().catch(() => undefined)} className="mt-5 rounded-full bg-[var(--color-sidebar)] px-5 py-3 text-sm font-semibold text-white">
-            Add team member
+            {t("Add team member")}
           </button>
         </div>
       </section>
 
       <section className="surface overflow-hidden rounded-[30px]">
         <div className="border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
-          <h3 className="font-[family-name:var(--font-heading)] text-2xl">Workspace members</h3>
+          <h3 className="font-[family-name:var(--font-heading)] text-2xl">{t("Workspace members")}</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-soft)]">
               <tr>
-                <th className="px-5 py-4 sm:px-6">Member</th>
-                <th className="px-5 py-4">Role</th>
-                <th className="px-5 py-4">2FA</th>
-                <th className="px-5 py-4">Action</th>
+                <th className="px-5 py-4 sm:px-6">{t("Member")}</th>
+                <th className="px-5 py-4">{t("Role")}</th>
+                <th className="px-5 py-4">{t("2FA")}</th>
+                <th className="px-5 py-4">{t("Action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -130,13 +154,13 @@ export function TeamConsole() {
                   </td>
                   <td className="border-t border-[var(--color-line)] px-5 py-4">{member.role}</td>
                   <td className="border-t border-[var(--color-line)] px-5 py-4">
-                    {member.twoFactorEnabled ? "Enabled" : "Disabled"}
+                    {member.twoFactorEnabled ? t("Enabled") : t("Disabled")}
                   </td>
                   <td className="border-t border-[var(--color-line)] px-5 py-4">
                     <select value={member.role} onChange={(event) => updateRole(member.id, event.target.value).catch(() => undefined)} className="rounded-2xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-blue)]">
-                      <option value="OWNER">Owner</option>
-                      <option value="ADMIN">Admin</option>
-                      <option value="VIEWER">Viewer</option>
+                      <option value="OWNER">{t("Owner")}</option>
+                      <option value="ADMIN">{t("Admin")}</option>
+                      <option value="VIEWER">{t("Viewer")}</option>
                     </select>
                   </td>
                 </tr>

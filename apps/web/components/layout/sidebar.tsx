@@ -3,19 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navGroups } from "@cloaka/shared";
+import { useWorkspace } from "@/components/providers/workspace-provider";
+
+const lockedRoutes: Record<string, "approvals" | "rules_engine" | "team_management" | "reporting" | "audit_exports"> = {
+  "/approvals": "approvals",
+  "/rules": "rules_engine",
+  "/team": "team_management",
+  "/reports": "reporting",
+  "/audit": "audit_exports"
+};
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t, hasFeature } = useWorkspace();
 
   return (
     <aside className="sidebar-surface flex h-full min-h-[760px] w-full flex-col rounded-[30px] p-4 text-white lg:max-w-[300px]">
       <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
         <div className="text-xs uppercase tracking-[0.18em] text-white/55">Cloaka</div>
         <div className="mt-3 font-[family-name:var(--font-heading)] text-3xl leading-none">
-          Payments, made calm.
+          {t("Payments, made calm.")}
         </div>
         <p className="mt-3 text-sm leading-6 text-white/68">
-          Built for Nigerian SMEs that need trust, speed, and cleaner payment operations.
+          {t("Built for Nigerian SMEs that need trust, speed, and cleaner payment operations.")}
         </p>
       </div>
 
@@ -23,12 +33,14 @@ export function Sidebar() {
         {navGroups.map((group) => (
           <div key={group.label}>
             <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-              {group.label}
+              {t(group.label)}
             </div>
             <div className="mt-2 space-y-1.5">
               {group.items.map((item) => {
                 const active =
                   item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const lockedFeature = lockedRoutes[item.href];
+                const isLocked = lockedFeature ? !hasFeature(lockedFeature) : false;
 
                 return (
                   <Link
@@ -41,8 +53,18 @@ export function Sidebar() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold">{item.label}</span>
-                      {item.badge ? (
+                      <span className="text-sm font-semibold">{t(item.label)}</span>
+                      {isLocked ? (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                            active
+                              ? "bg-[rgba(217,119,6,0.14)] text-[var(--color-amber)]"
+                              : "bg-white/10 text-white/70"
+                          }`}
+                        >
+                          Lock
+                        </span>
+                      ) : item.badge ? (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
                             active
@@ -59,7 +81,7 @@ export function Sidebar() {
                         active ? "text-slate-600" : "text-white/52"
                       }`}
                     >
-                      {item.description}
+                      {t(item.description)}
                     </p>
                   </Link>
                 );

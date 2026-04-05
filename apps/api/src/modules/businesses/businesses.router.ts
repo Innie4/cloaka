@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { deriveLocale, getCountryConfig } from "@cloaka/shared";
 import { prisma } from "../../config/database";
 import { ok } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
@@ -11,7 +12,9 @@ export const businessesRouter = Router();
 const updateSettingsSchema = z.object({
   lowBalanceThreshold: z.string().min(1).optional(),
   emailNotifications: z.boolean().optional(),
-  smsNotifications: z.boolean().optional()
+  smsNotifications: z.boolean().optional(),
+  countryCode: z.enum(["NG", "GH", "KE", "ZA", "GB", "US"]).optional(),
+  languageCode: z.enum(["en", "fr"]).optional()
 });
 
 businessesRouter.get(
@@ -45,34 +48,77 @@ businessesRouter.patch(
   requireAuth,
   asyncHandler(async (req, res) => {
     const input = updateSettingsSchema.parse(req.body);
+    const country = input.countryCode ? getCountryConfig(input.countryCode) : null;
+    const locale =
+      input.countryCode && input.languageCode
+        ? deriveLocale(input.countryCode, input.languageCode)
+        : input.languageCode
+          ? deriveLocale(
+              (
+                await prisma.business.findUnique({
+                  where: { id: req.auth!.businessId },
+                  select: { countryCode: true }
+                })
+              )?.countryCode ?? "NG",
+              input.languageCode
+            )
+          : undefined;
 
-    const settings = await prisma.businessSettings.upsert({
-      where: {
-        businessId: req.auth!.businessId
-      },
-      update: {
-        ...(input.lowBalanceThreshold
-          ? {
-              lowBalanceThreshold: input.lowBalanceThreshold
-            }
-          : {}),
-        ...(input.emailNotifications !== undefined
-          ? {
-              emailNotifications: input.emailNotifications
-            }
-          : {}),
-        ...(input.smsNotifications !== undefined
-          ? {
-              smsNotifications: input.smsNotifications
-            }
-          : {})
-      },
-      create: {
-        businessId: req.auth!.businessId,
-        lowBalanceThreshold: input.lowBalanceThreshold ?? "50000",
-        emailNotifications: input.emailNotifications ?? true,
-        smsNotifications: input.smsNotifications ?? true
+    const settings = await prisma.$transaction(async (tx) => {
+      if (input.countryCode || input.languageCode) {
+        await tx.business.update({
+          where: {
+            id: req.auth!.businessId
+          },
+          data: {
+            ...(country
+              ? {
+                  countryCode: country.code,
+                  currencyCode: country.currencyCode
+                }
+              : {}),
+            ...(input.languageCode
+              ? {
+                  languageCode: input.languageCode
+                }
+              : {}),
+            ...(locale
+              ? {
+                  locale
+                }
+              : {})
+          }
+        });
       }
+
+      return tx.businessSettings.upsert({
+        where: {
+          businessId: req.auth!.businessId
+        },
+        update: {
+          ...(input.lowBalanceThreshold
+            ? {
+                lowBalanceThreshold: input.lowBalanceThreshold
+              }
+            : {}),
+          ...(input.emailNotifications !== undefined
+            ? {
+                emailNotifications: input.emailNotifications
+              }
+            : {}),
+          ...(input.smsNotifications !== undefined
+            ? {
+                smsNotifications: input.smsNotifications
+              }
+            : {})
+        },
+        create: {
+          businessId: req.auth!.businessId,
+          lowBalanceThreshold: input.lowBalanceThreshold ?? "50000",
+          emailNotifications: input.emailNotifications ?? true,
+          smsNotifications: input.smsNotifications ?? true
+        }
+      });
     });
 
     await prisma.auditLog.create({

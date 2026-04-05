@@ -5,6 +5,7 @@ import { ok } from "../../lib/api-response";
 import { AppError } from "../../lib/app-error";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "../../middleware/require-auth";
+import { assertPlanFeature } from "../../services/plan-access.service";
 import { testRuleAgainstPayload } from "../../services/payment-orchestration.service";
 
 const ruleConditionSchema = z.object({
@@ -58,6 +59,7 @@ rulesRouter.post(
   "/live",
   requireAuth,
   asyncHandler(async (req, res) => {
+    await assertPlanFeature(req.auth!.businessId, "rules_engine");
     const input = createRuleSchema.parse(req.body);
     const rule = await prisma.rule.create({
       data: {
@@ -82,6 +84,7 @@ rulesRouter.post(
   "/:id/test",
   requireAuth,
   asyncHandler(async (req, res) => {
+    await assertPlanFeature(req.auth!.businessId, "rules_engine");
     const input = testRuleSchema.parse(req.body);
     const ruleId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const rule = await prisma.rule.findFirst({

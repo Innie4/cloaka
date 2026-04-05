@@ -5,7 +5,10 @@ export const registerSchema = z.object({
   ownerName: z.string().min(2).max(120),
   email: z.email(),
   phone: z.string().min(10).max(20),
-  password: z.string().min(8).max(120)
+  password: z.string().min(8).max(120),
+  planTier: z.enum(["STARTER", "GROWTH", "SCALE", "ENTERPRISE"]).default("STARTER"),
+  countryCode: z.enum(["NG", "GH", "KE", "ZA", "GB", "US"]).default("NG"),
+  languageCode: z.enum(["en", "fr"]).default("en")
 });
 
 export const loginSchema = z.object({

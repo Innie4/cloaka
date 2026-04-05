@@ -20,13 +20,22 @@ async function main() {
     where: {
       primaryEmail: "owner@cloaka.demo"
     },
-    update: {},
+    update: {
+      countryCode: "NG",
+      currencyCode: "NGN",
+      languageCode: "en",
+      locale: "en-NG"
+    },
     create: {
       name: "Cloaka Demo Logistics",
       slug: "cloaka-demo-logistics",
       primaryEmail: "owner@cloaka.demo",
       phone: "+2348012345678",
       planTier: PlanTier.SCALE,
+      countryCode: "NG",
+      currencyCode: "NGN",
+      languageCode: "en",
+      locale: "en-NG",
       industry: "Logistics",
       businessSize: "22 staff",
       state: "Lagos",

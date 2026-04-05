@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
+import { deriveLocale, getCountryConfig, getPlanPolicy } from "@cloaka/shared";
 import { addDays } from "../shared/date";
 import { prisma } from "../../config/database";
 import { AppError } from "../../lib/app-error";
@@ -47,6 +48,37 @@ async function issueTokens(user: {
   };
 }
 
+function serializeBusinessContext(input: {
+  id: string;
+  name: string;
+  slug: string;
+  planTier: "STARTER" | "GROWTH" | "SCALE" | "ENTERPRISE";
+  kybStatus: string;
+  countryCode: string;
+  currencyCode: string;
+  languageCode: string;
+  locale: string;
+}) {
+  const policy = getPlanPolicy(input.planTier);
+
+  return {
+    id: input.id,
+    name: input.name,
+    slug: input.slug,
+    planTier: input.planTier,
+    kybStatus: input.kybStatus,
+    countryCode: input.countryCode,
+    currencyCode: input.currencyCode,
+    languageCode: input.languageCode,
+    locale: input.locale,
+    limits: {
+      maxRecipients: policy.maxRecipients,
+      maxTeamMembers: policy.maxTeamMembers
+    },
+    features: policy.features
+  };
+}
+
 export async function registerBusiness(input: RegisterInput) {
   const existing = await prisma.user.findUnique({
     where: {
@@ -60,6 +92,8 @@ export async function registerBusiness(input: RegisterInput) {
 
   const passwordHash = await bcrypt.hash(input.password, 12);
   const baseSlug = slugify(input.businessName);
+  const country = getCountryConfig(input.countryCode);
+  const locale = deriveLocale(input.countryCode, input.languageCode);
 
   const business = await prisma.business.create({
     data: {
@@ -67,6 +101,11 @@ export async function registerBusiness(input: RegisterInput) {
       slug: `${baseSlug}-${Date.now().toString().slice(-6)}`,
       primaryEmail: input.email,
       phone: input.phone,
+      planTier: input.planTier,
+      countryCode: country.code,
+      currencyCode: country.currencyCode,
+      languageCode: input.languageCode,
+      locale,
       settings: {
         create: {
           lowBalanceThreshold: "50000"
@@ -103,13 +142,17 @@ export async function registerBusiness(input: RegisterInput) {
   });
 
   return {
-    business: {
+    business: serializeBusinessContext({
       id: business.id,
       name: business.name,
       slug: business.slug,
       planTier: business.planTier,
-      kybStatus: business.kybStatus
-    },
+      kybStatus: business.kybStatus,
+      countryCode: business.countryCode,
+      currencyCode: business.currencyCode,
+      languageCode: business.languageCode,
+      locale: business.locale
+    }),
     user: {
       id: owner.id,
       fullName: owner.fullName,
@@ -170,13 +213,17 @@ export async function loginUser(input: LoginInput) {
   });
 
   return {
-    business: {
+    business: serializeBusinessContext({
       id: user.business.id,
       name: user.business.name,
       slug: user.business.slug,
       planTier: user.business.planTier,
-      kybStatus: user.business.kybStatus
-    },
+      kybStatus: user.business.kybStatus,
+      countryCode: user.business.countryCode,
+      currencyCode: user.business.currencyCode,
+      languageCode: user.business.languageCode,
+      locale: user.business.locale
+    }),
     user: {
       id: user.id,
       fullName: user.fullName,
@@ -247,9 +294,17 @@ export async function getCurrentUserProfile(userId: string) {
       twoFactorEnabled: user.twoFactorEnabled
     },
     business: {
-      id: user.business.id,
-      name: user.business.name,
-      planTier: user.business.planTier,
+      ...serializeBusinessContext({
+        id: user.business.id,
+        name: user.business.name,
+        slug: user.business.slug,
+        planTier: user.business.planTier,
+        kybStatus: user.business.kybStatus,
+        countryCode: user.business.countryCode,
+        currencyCode: user.business.currencyCode,
+        languageCode: user.business.languageCode,
+        locale: user.business.locale
+      }),
       lowBalanceThreshold: user.business.settings?.lowBalanceThreshold?.toString() ?? null,
       emailNotifications: user.business.settings?.emailNotifications ?? true,
       smsNotifications: user.business.settings?.smsNotifications ?? true

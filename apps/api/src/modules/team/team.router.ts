@@ -9,6 +9,7 @@ import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "../../middleware/require-auth";
 import { sendEmailNotification, sendSmsNotification } from "../../services/delivery.service";
 import { queueNotification } from "../../services/notifications.service";
+import { assertPlanFeature, getBusinessPlanContext } from "../../services/plan-access.service";
 
 const createTeamMemberSchema = z.object({
   fullName: z.string().min(2).max(120),
@@ -73,7 +74,22 @@ teamRouter.post(
   "/live",
   requireAuth,
   asyncHandler(async (req, res) => {
+    await assertPlanFeature(req.auth!.businessId, "team_management");
     const input = createTeamMemberSchema.parse(req.body);
+    const { policy } = await getBusinessPlanContext(req.auth!.businessId);
+    const existingTeamCount = await prisma.user.count({
+      where: {
+        businessId: req.auth!.businessId
+      }
+    });
+
+    if (existingTeamCount >= policy.maxTeamMembers) {
+      throw new AppError(
+        `Your current plan supports up to ${policy.maxTeamMembers} team member(s).`,
+        403,
+        "TEAM_MEMBER_LIMIT_REACHED"
+      );
+    }
     const existingUser = await prisma.user.findUnique({
       where: {
         email: input.email
@@ -148,6 +164,7 @@ teamRouter.patch(
   "/live/:id/role",
   requireAuth,
   asyncHandler(async (req, res) => {
+    await assertPlanFeature(req.auth!.businessId, "team_management");
     const input = updateRoleSchema.parse(req.body);
     const memberId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const member = await prisma.user.findFirst({

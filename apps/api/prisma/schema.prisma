@@ -88,6 +88,10 @@ model Business {
   phone            String
   planTier         PlanTier           @default(STARTER)
   kybStatus        KybStatus          @default(PENDING)
+  countryCode      String             @default("NG")
+  currencyCode     String             @default("NGN")
+  languageCode     String             @default("en")
+  locale           String             @default("en-NG")
   industry         String?
   businessSize     String?
   state            String?
