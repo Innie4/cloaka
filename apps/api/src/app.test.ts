@@ -35,4 +35,14 @@ describe("createApp", () => {
     expect(Array.isArray(response.body.data.metrics)).toBe(true);
     expect(Array.isArray(response.body.data.payments)).toBe(true);
   });
+
+  it("returns marketing data for the landing page", async () => {
+    const app = createApp();
+    const response = await request(app).get("/api/landing");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.headline).toContain("control surface");
+    expect(Array.isArray(response.body.data.pricingPlans)).toBe(true);
+  });
 });

@@ -3,6 +3,7 @@ import {
   getApprovals,
   getAuditEvents,
   getDashboardOverview,
+  getMarketingPageData,
   getPayments,
   getRecipients,
   getReports,
@@ -37,6 +38,10 @@ apiRouter.use("/recipients", recipientsRouter);
 
 apiRouter.get("/overview", (_req, res) => {
   res.json(ok(getDashboardOverview()));
+});
+
+apiRouter.get("/landing", (_req, res) => {
+  res.json(ok(getMarketingPageData()));
 });
 
 apiRouter.get("/payments", (_req, res) => {

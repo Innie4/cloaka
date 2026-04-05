@@ -1,11 +1,13 @@
 import type {
   DashboardOverview,
   HighlightCard,
+  MarketingPageData,
   PaymentRow,
   TrustHighlight
 } from "@cloaka/shared";
 import {
   getDashboardOverview,
+  getMarketingPageData,
   getPayments,
   getRecipients,
   getReports,
@@ -38,6 +40,10 @@ async function fetchFromApi<T>(path: string, fallback: T): Promise<T> {
 
 export async function getOverviewData() {
   return fetchFromApi<DashboardOverview>("/api/overview", getDashboardOverview());
+}
+
+export async function getLandingData() {
+  return fetchFromApi<MarketingPageData>("/api/landing", getMarketingPageData());
 }
 
 export async function getPaymentData() {
