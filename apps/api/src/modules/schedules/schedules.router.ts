@@ -73,7 +73,8 @@ schedulesRouter.post(
     const result = await runScheduleNow({
       scheduleId,
       businessId: req.auth!.businessId,
-      userId: req.auth!.userId
+      userId: req.auth!.userId,
+      force: true
     });
 
     res.json(ok(result));
