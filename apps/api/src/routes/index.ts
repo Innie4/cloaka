@@ -15,10 +15,19 @@ import {
 } from "@cloaka/shared";
 import { ok } from "../lib/api-response";
 import { authRouter } from "../modules/auth/auth.router";
+import { approvalsRouter } from "../modules/approvals/approvals.router";
+import { auditRouter } from "../modules/audit/audit.router";
 import { businessesRouter } from "../modules/businesses/businesses.router";
+import { dashboardRouter } from "../modules/dashboard/dashboard.router";
 import { integrationsRouter } from "../modules/integrations/integrations.router";
 import { notificationsRouter } from "../modules/notifications/notifications.router";
+import { paymentsRouter } from "../modules/payments/payments.router";
 import { recipientsRouter } from "../modules/recipients/recipients.router";
+import { reportsRouter } from "../modules/reports/reports.router";
+import { rulesRouter } from "../modules/rules/rules.router";
+import { schedulesRouter } from "../modules/schedules/schedules.router";
+import { teamRouter } from "../modules/team/team.router";
+import { walletRouter } from "../modules/wallet/wallet.router";
 import { webhooksRouter } from "../modules/webhooks/webhooks.router";
 import { renderDocsHtml, getOpenApiDocument } from "../services/openapi.service";
 
@@ -36,9 +45,18 @@ apiRouter.get("/health", (_req, res) => {
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/businesses", businessesRouter);
+apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/integrations", integrationsRouter);
 apiRouter.use("/notifications", notificationsRouter);
+apiRouter.use("/payments", paymentsRouter);
 apiRouter.use("/recipients", recipientsRouter);
+apiRouter.use("/reports", reportsRouter);
+apiRouter.use("/rules", rulesRouter);
+apiRouter.use("/schedules", schedulesRouter);
+apiRouter.use("/team", teamRouter);
+apiRouter.use("/wallet", walletRouter);
+apiRouter.use("/audit", auditRouter);
+apiRouter.use("/approvals", approvalsRouter);
 apiRouter.use("/webhooks", webhooksRouter);
 
 apiRouter.get("/openapi.json", (_req, res) => {

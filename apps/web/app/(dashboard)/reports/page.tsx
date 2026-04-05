@@ -1,15 +1,14 @@
-import { FeaturePreviewPage } from "@/components/dashboard/feature-preview-page";
-import { getReportCards } from "@/lib/api";
+import { PageFrame } from "@/components/layout/page-frame";
+import { ReportsConsole } from "@/components/reports/reports-console";
 
-export default async function ReportsPage() {
-  const cards = await getReportCards();
-
+export default function ReportsPage() {
   return (
-    <FeaturePreviewPage
+    <PageFrame
       eyebrow="Reports"
       title="Reporting should answer finance questions without drama."
-      description="Charts should be plain, readable, and export-friendly. The point is confidence and accountability, not dashboard theatrics."
-      cards={cards}
-    />
+      description="The live reports surface now breaks down paid, failed, withheld, and pending disbursements with simple totals and failure visibility."
+    >
+      <ReportsConsole />
+    </PageFrame>
   );
 }

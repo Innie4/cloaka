@@ -53,6 +53,11 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     expect(response.body.openapi).toBe("3.0.3");
     expect(response.body.paths["/api/recipients/import"]).toBeDefined();
+    expect(response.body.paths["/api/payments/live"]).toBeDefined();
+    expect(response.body.paths["/api/schedules/live"]).toBeDefined();
+    expect(response.body.paths["/api/team/live"]).toBeDefined();
+    expect(response.body.paths["/api/audit/live"]).toBeDefined();
+    expect(response.body.paths["/api/reports/live"]).toBeDefined();
   });
 
   it("returns a 400 for malformed JSON bodies", async () => {

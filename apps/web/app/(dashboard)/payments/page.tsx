@@ -1,17 +1,14 @@
-import { TransactionTable } from "@/components/dashboard/transaction-table";
 import { PageFrame } from "@/components/layout/page-frame";
-import { getPaymentData } from "@/lib/api";
+import { PaymentsConsole } from "@/components/payments/payments-console";
 
-export default async function PaymentsPage() {
-  const payments = await getPaymentData();
-
+export default function PaymentsPage() {
   return (
     <PageFrame
       eyebrow="Payments"
       title="Payment history should scan in seconds."
-      description="The table treatment here is intentionally direct: recipient, amount, state, and timing first, with richer detail deferred to later flow work."
+      description="Create, retry, execute, and reconcile disbursements from one surface, with payment status and recipient context kept in the same view."
     >
-      <TransactionTable rows={payments} />
+      <PaymentsConsole />
     </PageFrame>
   );
 }

@@ -1,13 +1,14 @@
-import { scheduleCards } from "@cloaka/shared";
-import { FeaturePreviewPage } from "@/components/dashboard/feature-preview-page";
+import { PageFrame } from "@/components/layout/page-frame";
+import { SchedulesConsole } from "@/components/schedules/schedules-console";
 
 export default function SchedulesPage() {
   return (
-    <FeaturePreviewPage
+    <PageFrame
       eyebrow="Schedules"
       title="Recurring runs should feel predictable, not mysterious."
-      description="These cards sketch the core scheduling primitives from the PRD: named runs, recipient groups, amount models, and approval-aware timing."
-      cards={scheduleCards}
-    />
+      description="Build named runs, attach recipients with fixed amounts, and trigger the schedule when you need it without losing idempotent safeguards."
+    >
+      <SchedulesConsole />
+    </PageFrame>
   );
 }

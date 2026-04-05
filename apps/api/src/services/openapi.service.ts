@@ -40,6 +40,73 @@ export function getOpenApiDocument() {
           summary: "Preview or import recipients from CSV"
         }
       },
+      "/api/wallet/summary": {
+        get: {
+          summary: "Get wallet summary"
+        }
+      },
+      "/api/wallet/fund": {
+        post: {
+          summary: "Create a manual wallet funding entry"
+        }
+      },
+      "/api/payments/live": {
+        get: {
+          summary: "List live payments"
+        },
+        post: {
+          summary: "Create a live payment"
+        }
+      },
+      "/api/payments/reconcile": {
+        post: {
+          summary: "Run payment reconciliation"
+        }
+      },
+      "/api/schedules/live": {
+        get: {
+          summary: "List schedules"
+        },
+        post: {
+          summary: "Create a schedule"
+        }
+      },
+      "/api/rules/live": {
+        get: {
+          summary: "List payment rules"
+        },
+        post: {
+          summary: "Create a payment rule"
+        }
+      },
+      "/api/approvals/live": {
+        get: {
+          summary: "List approval requests"
+        }
+      },
+      "/api/dashboard/live": {
+        get: {
+          summary: "Get the live dashboard summary"
+        }
+      },
+      "/api/team/live": {
+        get: {
+          summary: "List workspace users"
+        },
+        post: {
+          summary: "Add a team member"
+        }
+      },
+      "/api/audit/live": {
+        get: {
+          summary: "List audit log events"
+        }
+      },
+      "/api/reports/live": {
+        get: {
+          summary: "Get payment reporting data"
+        }
+      },
       "/api/notifications": {
         get: {
           summary: "List recent in-app notifications"

@@ -1,13 +1,14 @@
-import { ruleCards } from "@cloaka/shared";
-import { FeaturePreviewPage } from "@/components/dashboard/feature-preview-page";
+import { PageFrame } from "@/components/layout/page-frame";
+import { RulesConsole } from "@/components/rules/rules-console";
 
 export default function RulesPage() {
   return (
-    <FeaturePreviewPage
+    <PageFrame
       eyebrow="Rules engine"
       title="The product moat should feel as simple as a spreadsheet filter."
-      description="This page stays intentionally calm. The eventual builder should read like plain language, not code, with testable conditions and friendly AND/OR controls."
-      cards={ruleCards}
-    />
+      description="Plain-language conditions now map directly to approval or withhold behavior, and each saved rule can be tested against sample payloads."
+    >
+      <RulesConsole />
+    </PageFrame>
   );
 }
