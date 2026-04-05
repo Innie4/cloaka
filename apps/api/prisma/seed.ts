@@ -41,6 +41,7 @@ async function main() {
             type: RecipientType.EMPLOYEE,
             fullName: "Adaobi Nwosu",
             bankName: "GTBank",
+            bankCode: "058",
             accountNumber: "0123456789",
             accountName: "Adaobi Nwosu",
             department: "Operations",
@@ -50,6 +51,7 @@ async function main() {
             type: RecipientType.VENDOR,
             fullName: "Luma Logistics",
             bankName: "Access Bank",
+            bankCode: "044",
             accountNumber: "1234567890",
             accountName: "Luma Logistics Ltd",
             tags: ["vendor", "fleet"]

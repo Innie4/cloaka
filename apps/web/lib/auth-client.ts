@@ -30,6 +30,11 @@ type ApiEnvelope<T> = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+type RequestOptions = {
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  body?: unknown;
+};
+
 function saveSession(result: AuthSuccess) {
   if (typeof window === "undefined") {
     return;
@@ -41,13 +46,27 @@ function saveSession(result: AuthSuccess) {
   window.localStorage.setItem("cloaka.business", JSON.stringify(result.business));
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+function getStoredAccessToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem("cloaka.accessToken");
+}
+
+async function requestJson<T>(path: string, options?: RequestOptions): Promise<T> {
+  const accessToken = getStoredAccessToken();
   const response = await fetch(`${API_URL}${path}`, {
-    method: "POST",
+    method: options?.method ?? "GET",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(accessToken
+        ? {
+            Authorization: `Bearer ${accessToken}`
+          }
+        : {})
     },
-    body: JSON.stringify(body)
+    body: options?.body ? JSON.stringify(options.body) : undefined
   });
 
   const payload = (await response.json()) as ApiEnvelope<T>;
@@ -63,7 +82,10 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function loginRequest(input: { email: string; password: string }) {
-  const result = await postJson<AuthSuccess>("/api/auth/login", input);
+  const result = await requestJson<AuthSuccess>("/api/auth/login", {
+    method: "POST",
+    body: input
+  });
   saveSession(result);
   return result;
 }
@@ -75,7 +97,21 @@ export async function registerRequest(input: {
   phone: string;
   password: string;
 }) {
-  const result = await postJson<AuthSuccess>("/api/auth/register", input);
+  const result = await requestJson<AuthSuccess>("/api/auth/register", {
+    method: "POST",
+    body: input
+  });
   saveSession(result);
   return result;
+}
+
+export async function authedGet<T>(path: string) {
+  return requestJson<T>(path);
+}
+
+export async function authedPost<T>(path: string, body: unknown) {
+  return requestJson<T>(path, {
+    method: "POST",
+    body
+  });
 }

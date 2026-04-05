@@ -161,6 +161,7 @@ model Recipient {
   type           RecipientType
   fullName       String
   bankName       String
+  bankCode       String?
   accountNumber  String
   accountName    String
   email          String?
